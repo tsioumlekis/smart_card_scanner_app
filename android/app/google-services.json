@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "91338827024",
+    "project_id": "smart-card-scanner-1231a",
+    "storage_bucket": "smart-card-scanner-1231a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:91338827024:android:00f6d4725c98cbadb5f195",
+        "android_client_info": {
+          "package_name": "com.example.smart_card_scanner_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-YFT1vs4hcRJ4O5_P7hfugwO5uLl2zrY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
