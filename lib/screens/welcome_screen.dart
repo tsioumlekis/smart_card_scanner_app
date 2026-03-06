@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
+import 'scanner_screen.dart';
+
 // Την οθόνη σάρωσης θα τη φτιάξουμε στο επόμενο βήμα!
 // import 'scanner_screen.dart'; 
 
@@ -34,7 +36,7 @@ class WelcomeScreen extends StatelessWidget {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const LoginScreen()),
+                    MaterialPageRoute(builder: (context) => const LoginScreen(isTerminalMode: false)),
                   );
                 },
                 child: Container(
@@ -61,9 +63,9 @@ class WelcomeScreen extends StatelessWidget {
               // ΚΟΥΜΠΙ 2: Τερματικό Υπαλλήλων (Θα οδηγεί στο Σκανάρισμα)
               InkWell(
                 onTap: () {
-                  // Προσωρινά θα πετάει ένα μήνυμα μέχρι να φτιάξουμε την οθόνη
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Η οθόνη σάρωσης κατασκευάζεται! 🚧')),
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const LoginScreen(isTerminalMode: true)),
                   );
                 },
                 child: Container(

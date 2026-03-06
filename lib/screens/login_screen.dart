@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-import 'employee_screen.dart'; // Συνδέουμε τη δεύτερη οθόνη!
 import 'package:firebase_auth/firebase_auth.dart';
+import 'employee_screen.dart'; 
+import 'scanner_screen.dart'; // Βάλαμε και το Scanner εδώ!
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final bool isTerminalMode; // Αυτό λέει στην οθόνη ΓΙΑΤΙ την ανοίξαμε
+
+  // Απαιτούμε να μας πουν αν είναι για τερματικό ή όχι όταν την καλούν
+  const LoginScreen({super.key, required this.isTerminalMode}); 
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -24,17 +28,12 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      persistentFooterButtons: [
-        Container(
-          width: double.infinity,
-          alignment: Alignment.center,
-          padding: const EdgeInsets.all(8.0),
-          child: const Text(
-            '© 2026 Smart Work Card Scanner. Όλα τα δικαιώματα διατηρούνται.',
-            style: TextStyle(color: Colors.grey, fontSize: 12),
-          ),
-        ),
-      ],
+      appBar: AppBar(
+        // Αλλάζουμε λίγο τον τίτλο ανάλογα με το τι πατήσαμε!
+        title: Text(widget.isTerminalMode ? 'Σύνδεση Τερματικού' : 'Σύνδεση Εταιρείας'),
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
+      ),
       body: Center(
         child: SingleChildScrollView(
           child: Padding(
@@ -42,11 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset(
-                  'assets/image/logo_app1.png', 
-                  width: 100, 
-                  height: 100,  
-                ),
+                Image.asset('assets/image/logo_app1.png', width: 100, height: 100),
                 const SizedBox(height: 20),
                 const Text(
                   'Smart Work Card Scanner',
@@ -56,8 +51,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextField(
                   controller: _emailController,
                   decoration: InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: const Icon(Icons.email),
+                    labelText: 'Email Εταιρείας',
+                    prefixIcon: const Icon(Icons.business),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     filled: true,
                     fillColor: Colors.white,
@@ -83,28 +78,34 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: ElevatedButton(
                     onPressed: () async {
                       try {
-                        // 1. Διαβάζουμε τι έγραψε ο χρήστης στα κουτάκια
                         final email = _emailController.text.trim();
                         final password = _passwordController.text.trim();
 
-                        // 2. Ζητάμε από το Firebase να ελέγξει αν υπάρχουν
                         await FirebaseAuth.instance.signInWithEmailAndPassword(
                           email: email,
                           password: password,
                         );
 
-                        // 3. ΑΝ είναι σωστά, ΤΟΤΕ αλλάζουμε οθόνη (μαζί με ένα μήνυμα επιτυχίας)
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Επιτυχής Σύνδεση!'), backgroundColor: Colors.green),
                           );
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (context) => const EmployeeScreen()),
-                          );
+                          
+                          // ΕΔΩ ΕΙΝΑΙ Η ΜΑΓΕΙΑ: 
+                          // Ελέγχει αν το ανοίξαμε για τερματικό ή για διαχείριση
+                          if (widget.isTerminalMode) {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (context) => const ScannerScreen()),
+                            );
+                          } else {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (context) => const EmployeeScreen()),
+                            );
+                          }
                         }
                       } on FirebaseAuthException catch (e) {
-                        // 4. ΑΝ τα στοιχεία είναι λάθος, βγάζουμε κόκκινο μήνυμα λάθους!
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
