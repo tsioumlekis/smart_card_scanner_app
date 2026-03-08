@@ -38,6 +38,8 @@ dependencies:
   cloud_firestore: ^6.1.2
   firebase_auth: ^6.2.0
   mobile_scanner: ^7.2.0
+  nfc_manager: ^4.1.1
+  nfc_manager_ndef: ^1.1.0
 
 dev_dependencies:
   flutter_test:
@@ -49,6 +51,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: "^0.13.1"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -63,6 +66,7 @@ flutter:
   assets:
     - assets/image/logo_app1.png
     - assets/image/logo_app2.png
+    - assets/image/app_icon.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -94,3 +98,10 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/image/app_icon.png" # Η εικόνα 1000x1000 που έφτιαξες
+  adaptive_icon_background: "#12181F"    # Το χρώμα φόντου της εφαρμογής σου
+  adaptive_icon_foreground: "assets/image/app_icon.png"
