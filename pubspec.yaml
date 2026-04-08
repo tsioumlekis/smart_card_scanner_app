@@ -40,6 +40,7 @@ dependencies:
   mobile_scanner: ^7.2.0
   nfc_manager: ^4.1.1
   nfc_manager_ndef: ^1.1.0
+  fl_chart: ^1.2.0
 
 dev_dependencies:
   flutter_test:

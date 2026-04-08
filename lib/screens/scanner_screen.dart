@@ -54,7 +54,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
           if (ndef != null && ndef.cachedMessage != null) {
             for (var record in ndef.cachedMessage!.records) {
               // Ελέγχουμε αν η εγγραφή είναι τύπου Κειμένου (Text)
-              // ---> Η ΑΛΛΑΓΗ ΕΓΙΝΕ ΕΔΩ: TypeNameFormat <---
               if (record.typeNameFormat == TypeNameFormat.wellKnown &&
                   record.type.isNotEmpty && record.type.first == 0x54) { 
                 
