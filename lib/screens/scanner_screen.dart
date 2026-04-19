@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:async';
-import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:nfc_manager/nfc_manager.dart'; 
 import 'dart:convert';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:nfc_manager/nfc_manager.dart';
 import 'package:nfc_manager_ndef/nfc_manager_ndef.dart';
-import 'package:nfc_manager/ndef_record.dart';
-
+import 'package:nfc_manager/nfc_manager_android.dart';
 
 class ScannerScreen extends StatefulWidget {
   const ScannerScreen({super.key});
@@ -14,29 +14,77 @@ class ScannerScreen extends StatefulWidget {
   State<ScannerScreen> createState() => _ScannerScreenState();
 }
 
-class _ScannerScreenState extends State<ScannerScreen> {
+class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserver {
   String currentTime = '';
   Timer? timer;
   bool isScanning = false;
-  String currentAction = ''; 
+  String currentAction = '';
   Color actionColor = Colors.blue;
+  bool _isProcessing = false;
+
+  // ✅ Αυτό "πιάνει" το NFC intent ΠΡΙΝ φύγει στο Android σύστημα
+  static const _nfcChannel = MethodChannel('com.example.smartCardScannerApp/nfc');
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _updateTime();
     timer = Timer.periodic(const Duration(seconds: 1), (Timer t) => _updateTime());
+    _enableNfcForegroundDispatch();
+  }
+
+  // ✅ Η εφαρμογή παίρνει προτεραιότητα έναντι του Android για NFC intents
+  void _enableNfcForegroundDispatch() {
+    try {
+      _nfcChannel.invokeMethod('enableForegroundDispatch');
+    } catch (_) {}
+  }
+
+  void _disableNfcForegroundDispatch() {
+    try {
+      _nfcChannel.invokeMethod('disableForegroundDispatch');
+    } catch (_) {}
+  }
+
+  // ✅ Όταν η εφαρμογή επιστρέφει foreground, ξανα-ενεργοποιούμε
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _enableNfcForegroundDispatch();
+    } else if (state == AppLifecycleState.paused) {
+      _disableNfcForegroundDispatch();
+    }
   }
 
   void _updateTime() {
     final now = DateTime.now();
+    if (mounted) {
+      setState(() {
+        currentTime =
+            "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
+      });
+    }
+  }
+
+  void startScan(String action, Color color) {
+    _isProcessing = false;
     setState(() {
-      currentTime = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
+      currentAction = action;
+      actionColor = color;
+      isScanning = true;
+    });
+
+    NfcManager.instance.stopSession().catchError((_) {});
+
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (isScanning && mounted) {
+        _startNfcSession();
+      }
     });
   }
 
-  // --- Η ΛΟΓΙΚΗ ΤΟΥ NFC (ΔΙΑΒΑΖΕΙ ΓΡΑΜΜΕΝΟ ΚΕΙΜΕΝΟ) ---
-  void startNfcSession() async {
+  void _startNfcSession() async {
     var availability = await NfcManager.instance.checkAvailability();
     if (availability != NfcAvailability.enabled) return;
 
@@ -47,82 +95,98 @@ class _ScannerScreenState extends State<ScannerScreen> {
         NfcPollingOption.iso18092,
       },
       onDiscovered: (NfcTag tag) async {
+        if (!isScanning || _isProcessing) return;
+
+        // Κλειδώνουμε ΑΜΕΣΩΣ
+        _isProcessing = true;
+
+        await NfcManager.instance.stopSession().catchError((_) {});
+
+        if (mounted) {
+          setState(() {
+            isScanning = false;
+          });
+        }
+
         try {
-          // 1. Δοκιμάζουμε να διαβάσουμε το γραμμένο κείμενο (NDEF Data)
+          // 1. NDEF κείμενο
           Ndef? ndef = Ndef.from(tag);
-          
           if (ndef != null && ndef.cachedMessage != null) {
             for (var record in ndef.cachedMessage!.records) {
-              // Ελέγχουμε αν η εγγραφή είναι τύπου Κειμένου (Text)
-              if (record.typeNameFormat == TypeNameFormat.wellKnown &&
-                  record.type.isNotEmpty && record.type.first == 0x54) { 
-                
+              if (record.typeNameFormat.index == 1 &&
+                  record.type.isNotEmpty &&
+                  record.type.first == 0x54) {
                 final payload = record.payload;
                 if (payload.isNotEmpty) {
-                  // Παραλείπουμε τον κωδικό γλώσσας
                   final languageCodeLength = payload[0] & 0x3F;
-                  final text = utf8.decode(payload.sublist(1 + languageCodeLength));
-                  
-                  stopAllScanning();
-                  showSuccessMessage(text, "NFC Κάρτα");
-                  return; // Βρήκαμε το κείμενο, τερματίζουμε την αναζήτηση!
+                  final text =
+                      utf8.decode(payload.sublist(1 + languageCodeLength));
+                  showSuccessMessage(text, "NFC Κείμενο");
+                  return;
                 }
               }
             }
           }
 
-          // 2. ΕΝΑΛΛΑΚΤΙΚΗ: Αν η κάρτα είναι άδεια (δεν έχει κείμενο)
-          dynamic tagData = tag.data;
-          var identifier = tagData.id;
+          // 2. Hardware ID
+          List<int>? identifier;
+          if (NfcAAndroid.from(tag) != null) {
+            identifier = NfcAAndroid.from(tag)!.tag.id;
+          } else if (MifareClassicAndroid.from(tag) != null) {
+            identifier = MifareClassicAndroid.from(tag)!.tag.id;
+          } else if (NfcVAndroid.from(tag) != null) {
+            identifier = NfcVAndroid.from(tag)!.tag.id;
+          } else if (NfcBAndroid.from(tag) != null) {
+            identifier = NfcBAndroid.from(tag)!.tag.id;
+          } else if (NfcFAndroid.from(tag) != null) {
+            identifier = NfcFAndroid.from(tag)!.tag.id;
+          }
 
           if (identifier != null) {
-            String nfcId = (identifier as List<int>)
+            String nfcId = identifier
                 .map((e) => e.toRadixString(16).padLeft(2, '0'))
                 .join(':')
                 .toUpperCase();
-            
-            stopAllScanning();
-            showSuccessMessage(nfcId, "NFC Κάρτα (Hardware ID)");
+            showSuccessMessage(nfcId, "NFC Κάρτα");
+          } else {
+            showSuccessMessage("Άγνωστη Κάρτα", "NFC");
           }
         } catch (e) {
-          debugPrint("Σφάλμα κατά την ανάγνωση: $e");
+          debugPrint("Σφάλμα NFC: $e");
+          _isProcessing = false;
         }
       },
     );
   }
 
-  // --- ΣΤΑΜΑΤΑΕΙ ΤΗ ΣΑΡΩΣΗ (NFC & ΚΑΜΕΡΑ) ---
-  void stopAllScanning() {
-    NfcManager.instance.stopSession();
+  void cancelScan() {
+    _isProcessing = false;
     setState(() {
       isScanning = false;
     });
+    NfcManager.instance.stopSession().catchError((_) {});
   }
 
   void showSuccessMessage(String id, String method) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('✅ $currentAction επιτυχής ($method)\nID: $id\nΏρα: $currentTime'),
+        content: Text(
+            '✅ $currentAction επιτυχής ($method)\nID: $id\nΏρα: $currentTime'),
         backgroundColor: actionColor,
         duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     timer?.cancel();
-    NfcManager.instance.stopSession();
+    _disableNfcForegroundDispatch();
+    NfcManager.instance.stopSession().catchError((_) {});
     super.dispose();
-  }
-
-  void startScan(String action, Color color) {
-    setState(() {
-      currentAction = action;
-      actionColor = color;
-      isScanning = true; 
-    });
-    startNfcSession(); // Ξεκινάει το NFC ταυτόχρονα με την κάμερα!
   }
 
   @override
@@ -140,7 +204,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            // 1. Ρολόι
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 40),
@@ -152,7 +215,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
               child: Text(
                 currentTime,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 65, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 4),
+                style: const TextStyle(
+                    fontSize: 65,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 4),
               ),
             ),
 
@@ -164,9 +231,13 @@ class _ScannerScreenState extends State<ScannerScreen> {
               ),
               Row(
                 children: [
-                  Expanded(child: buildActionButton('ΠΡΟΣΕΛΕΥΣΗ', Icons.login, const Color(0xFF00E676))),
+                  Expanded(
+                      child: buildActionButton(
+                          'ΠΡΟΣΕΛΕΥΣΗ', Icons.login, const Color(0xFF00E676))),
                   const SizedBox(width: 16),
-                  Expanded(child: buildActionButton('ΑΠΟΧΩΡΗΣΗ', Icons.logout, const Color(0xFFFF1744))),
+                  Expanded(
+                      child: buildActionButton(
+                          'ΑΠΟΧΩΡΗΣΗ', Icons.logout, const Color(0xFFFF1744))),
                 ],
               ),
             ] else ...[
@@ -174,7 +245,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 children: [
                   Text(
                     'Σκανάρετε QR ή NFC για $currentAction',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: actionColor),
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: actionColor),
                   ),
                   const SizedBox(height: 20),
                   SizedBox(
@@ -183,19 +257,25 @@ class _ScannerScreenState extends State<ScannerScreen> {
                       borderRadius: BorderRadius.circular(20),
                       child: MobileScanner(
                         onDetect: (capture) {
+                          if (_isProcessing) return;
                           final List<Barcode> barcodes = capture.barcodes;
-                          if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
-                            stopAllScanning();
-                            showSuccessMessage(barcodes.first.rawValue!, "QR Code");
+                          if (barcodes.isNotEmpty &&
+                              barcodes.first.rawValue != null) {
+                            _isProcessing = true;
+                            cancelScan();
+                            showSuccessMessage(
+                                barcodes.first.rawValue!, "QR Code");
                           }
                         },
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
                   TextButton.icon(
-                    onPressed: stopAllScanning,
+                    onPressed: cancelScan,
                     icon: const Icon(Icons.cancel, color: Colors.white70),
-                    label: const Text('Ακύρωση', style: TextStyle(color: Colors.white70)),
+                    label: const Text('Ακύρωση',
+                        style: TextStyle(color: Colors.white70)),
                   )
                 ],
               ),
@@ -218,7 +298,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
         children: [
           Icon(icon, size: 35, color: Colors.white),
           const SizedBox(height: 10),
-          Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white)),
         ],
       ),
     );

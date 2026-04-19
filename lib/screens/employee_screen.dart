@@ -9,7 +9,6 @@ class EmployeeScreen extends StatefulWidget {
 }
 
 class _EmployeeScreenState extends State<EmployeeScreen> {
-  // Η λίστα μας με τα ΑΦΜ και την Εταιρεία
   List<Map<String, dynamic>> employees = [
     {'name': 'Γιάννης Παπαδόπουλος', 'time': 'In: 08:05 π.μ.', 'mood': '😊 Χαρούμενος', 'color': Colors.green, 'role': 'Senior Developer', 'email': 'giannis.p@company.gr', 'phone': '6912345678', 'company': 'COMP-1746', 'afm': '123456789'},
     {'name': 'Μαρία Γεωργίου', 'time': 'Εκτός Βάρδιας', 'mood': '😴 Κουρασμένη', 'color': Colors.grey, 'role': 'HR Manager', 'email': 'maria.g@company.gr', 'phone': '6998765432', 'company': 'COMP-1746', 'afm': '987654321'},
@@ -20,16 +19,14 @@ class _EmployeeScreenState extends State<EmployeeScreen> {
 
   void _addEmployee(String name) {
     if (name.isNotEmpty) {
-      setState(() {
-        employees.add({'name': name, 'time': 'Εκτός Βάρδιας', 'mood': '-', 'color': Colors.grey, 'role': 'Νέος Υπάλληλος', 'email': '-', 'phone': '-', 'company': 'COMP-1746', 'afm': '-'});
-      });
+      setState(() => employees.add({'name': name, 'time': 'Εκτός Βάρδιας', 'mood': '-', 'color': Colors.grey, 'role': 'Νέος Υπάλληλος', 'email': '-', 'phone': '-', 'company': 'COMP-1746', 'afm': '-'}));
     }
   }
 
-  void _updateEmployee(int index, String newName, String newRole, String newEmail, String newPhone, String newAfm, String newCompany) {
+  void _updateEmployee(int index, String nName, String nRole, String nEmail, String nPhone, String nAfm, String nCompany) {
     setState(() {
-      employees[index]['name'] = newName; employees[index]['role'] = newRole; employees[index]['email'] = newEmail;
-      employees[index]['phone'] = newPhone; employees[index]['afm'] = newAfm; employees[index]['company'] = newCompany;
+      employees[index]['name'] = nName; employees[index]['role'] = nRole; employees[index]['email'] = nEmail;
+      employees[index]['phone'] = nPhone; employees[index]['afm'] = nAfm; employees[index]['company'] = nCompany;
     });
   }
 
@@ -101,178 +98,126 @@ class _EmployeeScreenState extends State<EmployeeScreen> {
     showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF1E252D), title: const Text('Προσθήκη Υπαλλήλου', style: TextStyle(color: Colors.white)), content: TextField(controller: nCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(hintText: 'Ονοματεπώνυμο', hintStyle: TextStyle(color: Colors.white54))), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Ακύρωση', style: TextStyle(color: Colors.white54))), ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent), onPressed: () { _addEmployee(nCtrl.text); Navigator.pop(context); }, child: const Text('Αποθήκευση', style: TextStyle(color: Colors.white)))]));
   }
 
+
+  // ==========================================
+  // ΕΔΩ ΕΙΝΑΙ ΟΛΗ Η ΛΟΓΙΚΗ ΓΙΑ ΝΑ ΠΑΙΖΕΙ ΠΑΝΤΟΥ!
+  // ==========================================
+
+  // Έφτιαξα μια ξεχωριστή συνάρτηση για τη "Στήλη της Λίστας"
+  Widget _buildEmployeeContainer(bool isMobile) {
+    Widget listWidget = ListView.builder(
+      shrinkWrap: isMobile, // Στο κινητό το αφήνουμε να πάρει όσο χώρο θέλει προς τα κάτω
+      physics: isMobile ? const NeverScrollableScrollPhysics() : const AlwaysScrollableScrollPhysics(), // Στο κινητό σκρολάρει όλη η σελίδα, όχι μόνο η λίστα
+      itemCount: employees.length, 
+      itemBuilder: (context, index) => _buildEmployeeTile(employees[index], index)
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF1A2027), borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: isMobile ? MainAxisSize.min : MainAxisSize.max,
+        children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Ομάδα Εργασίας', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)), IconButton(onPressed: _showAddEmployeeDialog, icon: const Icon(Icons.person_add, color: Colors.blueAccent))]),
+          const Divider(color: Colors.white24, height: 20),
+          isMobile ? listWidget : Expanded(child: listWidget),
+        ],
+      ),
+    );
+  }
+
+  // Έφτιαξα μια ξεχωριστή συνάρτηση για τη "Στήλη των Γραφημάτων"
+  List<Widget> _buildChartWidgets() {
+    return [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(child: _buildStatCard('Παρόντες', '14', Colors.greenAccent)), const SizedBox(width: 10),
+          Expanded(child: _buildStatCard('Απόντες', '2', Colors.redAccent)), const SizedBox(width: 10),
+          Expanded(child: _buildStatCard('Άδειες', '1', Colors.orangeAccent)),
+        ],
+      ),
+      const SizedBox(height: 30),
+
+      const Text('Στατιστικά Παρουσίας', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+      const SizedBox(height: 15),
+      Container(
+        height: 250, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF1E252D), borderRadius: BorderRadius.circular(16)),
+        child: Row(
+          children: [
+            Expanded(flex: 3, child: PieChart(PieChartData(sectionsSpace: 2, centerSpaceRadius: 40, sections: [
+              PieChartSectionData(color: Colors.greenAccent, value: 70, title: '70%', radius: 30, titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.black87)),
+              PieChartSectionData(color: Colors.orangeAccent, value: 20, title: '20%', radius: 30, titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.black87)),
+              PieChartSectionData(color: Colors.redAccent, value: 10, title: '10%', radius: 30, titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.black87)),
+            ]))),
+            Expanded(flex: 2, child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [_buildLegendItem(Colors.greenAccent, 'Στην ώρα'), const SizedBox(height: 10), _buildLegendItem(Colors.orangeAccent, 'Αργοπορία'), const SizedBox(height: 10), _buildLegendItem(Colors.redAccent, 'Απουσία')]))
+          ],
+        ),
+      ),
+      const SizedBox(height: 30),
+
+      const Text('Δείκτης Ευεξίας (Σήμερα)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+      const SizedBox(height: 15),
+      Container(
+        height: 200, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF1E252D), borderRadius: BorderRadius.circular(16)),
+        child: BarChart(BarChartData(
+          alignment: BarChartAlignment.spaceAround, maxY: 10, 
+          barTouchData: BarTouchData(enabled: true, touchTooltipData: BarTouchTooltipData(getTooltipColor: (group) => Colors.black87, getTooltipItem: (group, groupIndex, rod, rodIndex) { double percentage = (rod.toY / 14) * 100; return BarTooltipItem('${rod.toY.toInt()} Άτομα\n(${percentage.toStringAsFixed(1)}%)', const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)); })),
+          titlesData: FlTitlesData(show: true, leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (value, meta) { const titles = ['Χαρούμενοι', 'Κουρασμένοι', 'Στρες']; return Padding(padding: const EdgeInsets.only(top: 8.0), child: Text(titles[value.toInt()], style: const TextStyle(color: Colors.white70, fontSize: 11))); }))),
+          gridData: const FlGridData(show: false), borderData: FlBorderData(show: false),
+          barGroups: [_buildBarGroup(0, 8, Colors.green), _buildBarGroup(1, 4, Colors.orange), _buildBarGroup(2, 2, Colors.red)],
+        )),
+      ),
+      const SizedBox(height: 30),
+
+      const Text('Τάση Παρουσιών (Εβδομάδα)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+      const SizedBox(height: 15),
+      Container(
+        height: 220, padding: const EdgeInsets.only(right: 20, left: 10, top: 20, bottom: 10), decoration: BoxDecoration(color: const Color(0xFF1E252D), borderRadius: BorderRadius.circular(16)),
+        child: LineChart(LineChartData(
+          gridData: const FlGridData(show: false), borderData: FlBorderData(show: false),
+          titlesData: FlTitlesData(show: true, leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (value, meta) { const days = ['Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ']; if (value.toInt() >= 0 && value.toInt() < days.length) return Padding(padding: const EdgeInsets.only(top: 8.0), child: Text(days[value.toInt()], style: const TextStyle(color: Colors.white70, fontSize: 12))); return const Text(''); }))),
+          lineTouchData: LineTouchData(touchTooltipData: LineTouchTooltipData(getTooltipColor: (spot) => Colors.black87, getTooltipItems: (touchedSpots) => touchedSpots.map((spot) => LineTooltipItem('${spot.y.toInt()} Παρόντες', const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))).toList())),
+          lineBarsData: [LineChartBarData(spots: const [FlSpot(0, 12), FlSpot(1, 14), FlSpot(2, 13), FlSpot(3, 14), FlSpot(4, 15)], isCurved: true, color: Colors.blueAccent, barWidth: 4, isStrokeCapRound: true, dotData: const FlDotData(show: true), belowBarData: BarAreaData(show: true, color: Colors.blueAccent.withOpacity(0.15)))],
+        )),
+      ),
+      const SizedBox(height: 20),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
+    // ΤΟ ΜΥΣΤΙΚΟ: Ρωτάμε πόσο πλάτος έχει η οθόνη αυτή τη στιγμή!
+    bool isDesktop = MediaQuery.of(context).size.width > 800;
+
     return Scaffold(
       backgroundColor: const Color(0xFF12181F),
       appBar: AppBar(title: const Text('Dashboard Εργοδότη', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), backgroundColor: const Color(0xFF1E252D), elevation: 2, centerTitle: false),
       body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ==========================================
-            // ΑΡΙΣΤΕΡΗ ΣΤΗΛΗ: ΛΙΣΤΑ ΥΠΑΛΛΗΛΩΝ (40%)
-            // ==========================================
-            Expanded(
-              flex: 4, 
-              child: Container(
-                padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF1A2027), borderRadius: BorderRadius.circular(16)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Ομάδα Εργασίας', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)), IconButton(onPressed: _showAddEmployeeDialog, icon: const Icon(Icons.person_add, color: Colors.blueAccent))]),
-                    const Divider(color: Colors.white24, height: 20),
-                    Expanded(child: ListView.builder(itemCount: employees.length, itemBuilder: (context, index) => _buildEmployeeTile(employees[index], index))),
-                  ],
-                ),
+        padding: const EdgeInsets.all(16.0), // Λίγο μικρότερο κενό γύρω γύρω για τα κινητά
+        child: isDesktop 
+          // ΑΝ ΕΙΝΑΙ ΥΠΟΛΟΓΙΣΤΗΣ: Τα βάζουμε δίπλα-δίπλα (Row)
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 4, child: _buildEmployeeContainer(false)),
+                const SizedBox(width: 30),
+                Expanded(flex: 6, child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: _buildChartWidgets()))),
+              ],
+            )
+          // ΑΝ ΕΙΝΑΙ ΚΙΝΗΤΟ: Τα βάζουμε το ένα κάτω από το άλλο (Column)
+          : SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Βάζουμε πρώτα τα γραφήματα στο κινητό (είναι πιο εντυπωσιακά)
+                  ..._buildChartWidgets(),
+                  const SizedBox(height: 20),
+                  // Και από κάτω τη λίστα της ομάδας
+                  _buildEmployeeContainer(true),
+                ],
               ),
             ),
-            const SizedBox(width: 30),
-
-            // ==========================================
-            // ΔΕΞΙΑ ΣΤΗΛΗ: ΣΤΑΤΙΣΤΙΚΑ & ΓΡΑΦΗΜΑΤΑ (60%)
-            // ==========================================
-            Expanded(
-              flex: 6,
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 1. Σταθερές Εντυπωσιακές Καρτέλες
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(child: _buildStatCard('Παρόντες', '14', Colors.greenAccent)), const SizedBox(width: 15),
-                        Expanded(child: _buildStatCard('Απόντες', '2', Colors.redAccent)), const SizedBox(width: 15),
-                        Expanded(child: _buildStatCard('Άδειες', '1', Colors.orangeAccent)),
-                      ],
-                    ),
-                    const SizedBox(height: 30),
-
-                    // 2. Σταθερή Εντυπωσιακή Πίτα
-                    const Text('Στατιστικά Παρουσίας', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                    const SizedBox(height: 15),
-                    Container(
-                      height: 250, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF1E252D), borderRadius: BorderRadius.circular(16)),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: PieChart(
-                              PieChartData(
-                                sectionsSpace: 2, centerSpaceRadius: 40,
-                                sections: [
-                                  PieChartSectionData(color: Colors.greenAccent, value: 70, title: '70%', radius: 30, titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.black87)),
-                                  PieChartSectionData(color: Colors.orangeAccent, value: 20, title: '20%', radius: 30, titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.black87)),
-                                  PieChartSectionData(color: Colors.redAccent, value: 10, title: '10%', radius: 30, titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.black87)),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 1,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildLegendItem(Colors.greenAccent, 'Στην ώρα'), const SizedBox(height: 10),
-                                _buildLegendItem(Colors.orangeAccent, 'Αργοπορία'), const SizedBox(height: 10),
-                                _buildLegendItem(Colors.redAccent, 'Απουσία'),
-                              ],
-                            ),
-                          )
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-
-                    // 3. Σταθερό Bar Chart με Tooltip
-                    const Text('Δείκτης Ευεξίας (Σήμερα)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                    const SizedBox(height: 15),
-                    Container(
-                      height: 200, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF1E252D), borderRadius: BorderRadius.circular(16)),
-                      child: BarChart(
-                        BarChartData(
-                          alignment: BarChartAlignment.spaceAround, maxY: 10, 
-                          barTouchData: BarTouchData(
-                            enabled: true,
-                            touchTooltipData: BarTouchTooltipData(
-                              getTooltipColor: (group) => Colors.black87,
-                              getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                                double percentage = (rod.toY / 14) * 100;
-                                return BarTooltipItem('${rod.toY.toInt()} Άτομα\n(${percentage.toStringAsFixed(1)}%)', const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13));
-                              },
-                            ),
-                          ),
-                          titlesData: FlTitlesData(
-                            show: true, leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                            bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (value, meta) {
-                              const titles = ['Χαρούμενοι', 'Κουρασμένοι', 'Στρεσαρισμένοι'];
-                              return Padding(padding: const EdgeInsets.only(top: 8.0), child: Text(titles[value.toInt()], style: const TextStyle(color: Colors.white70, fontSize: 12)));
-                            })),
-                          ),
-                          gridData: const FlGridData(show: false), borderData: FlBorderData(show: false),
-                          barGroups: [_buildBarGroup(0, 8, Colors.green), _buildBarGroup(1, 4, Colors.orange), _buildBarGroup(2, 2, Colors.red)],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-
-                    // ==========================================
-                    // 4. ΝΕΟ: Γράφημα Γραμμής (Εβδομαδιαία Τάση)
-                    // ==========================================
-                    const Text('Τάση Παρουσιών (Εβδομάδα)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                    const SizedBox(height: 15),
-                    Container(
-                      height: 220, padding: const EdgeInsets.only(right: 20, left: 10, top: 20, bottom: 10), decoration: BoxDecoration(color: const Color(0xFF1E252D), borderRadius: BorderRadius.circular(16)),
-                      child: LineChart(
-                        LineChartData(
-                          gridData: const FlGridData(show: false), // Χωρίς γραμμές στο φόντο για καθαρό look
-                          borderData: FlBorderData(show: false),
-                          titlesData: FlTitlesData(
-                            show: true, leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                            bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (value, meta) {
-                              const days = ['Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ'];
-                              if (value.toInt() >= 0 && value.toInt() < days.length) {
-                                return Padding(padding: const EdgeInsets.only(top: 8.0), child: Text(days[value.toInt()], style: const TextStyle(color: Colors.white70, fontSize: 12)));
-                              }
-                              return const Text('');
-                            })),
-                          ),
-                          // Το ταμπελάκι (Tooltip) όταν περνάς το ποντίκι
-                          lineTouchData: LineTouchData(
-                            touchTooltipData: LineTouchTooltipData(
-                              getTooltipColor: (spot) => Colors.black87,
-                              getTooltipItems: (touchedSpots) {
-                                return touchedSpots.map((spot) => LineTooltipItem('${spot.y.toInt()} Παρόντες', const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))).toList();
-                              },
-                            ),
-                          ),
-                          lineBarsData: [
-                            LineChartBarData(
-                              // Τα δεδομένα μας: (Μέρα, Άτομα)
-                              spots: const [FlSpot(0, 12), FlSpot(1, 14), FlSpot(2, 13), FlSpot(3, 14), FlSpot(4, 15)],
-                              isCurved: true, // Κάνει τη γραμμή απαλή καμπύλη
-                              color: Colors.blueAccent,
-                              barWidth: 4,
-                              isStrokeCapRound: true,
-                              dotData: const FlDotData(show: true), // Φαίνονται οι τελείες
-                              belowBarData: BarAreaData(
-                                show: true,
-                                color: Colors.blueAccent.withOpacity(0.15), // Το εφέ σκιάς κάτω από τη γραμμή
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 30), // Κενό στο τέλος για να σκρολάρει άνετα
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -280,9 +225,9 @@ class _EmployeeScreenState extends State<EmployeeScreen> {
   // --- Helpers ---
   Widget _buildEditField(TextEditingController controller, String label) => Padding(padding: const EdgeInsets.only(bottom: 15), child: TextField(controller: controller, style: const TextStyle(color: Colors.white), decoration: InputDecoration(labelText: label, labelStyle: const TextStyle(color: Colors.white54), enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.blueAccent)))));
   Widget _buildDetailRow(IconData icon, String title, String value) => Padding(padding: const EdgeInsets.symmetric(vertical: 8.0), child: Row(children: [Icon(icon, color: Colors.white54, size: 20), const SizedBox(width: 15), Expanded(child: Text(title, style: const TextStyle(color: Colors.white54, fontSize: 14))), Text(value, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500))]));
-  Widget _buildStatCard(String title, String count, Color color) => Container(padding: const EdgeInsets.symmetric(vertical: 20), decoration: BoxDecoration(color: const Color(0xFF1E252D), borderRadius: BorderRadius.circular(16), border: Border(bottom: BorderSide(color: color, width: 4))), child: Column(children: [Text(count, style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: color)), const SizedBox(height: 8), Text(title, style: const TextStyle(fontSize: 15, color: Colors.white70))]));
-  Widget _buildLegendItem(Color color, String text) => Row(children: [Container(width: 12, height: 12, decoration: BoxDecoration(shape: BoxShape.circle, color: color)), const SizedBox(width: 8), Text(text, style: const TextStyle(color: Colors.white70, fontSize: 13))]);
-  BarChartGroupData _buildBarGroup(int x, double y, Color color) => BarChartGroupData(x: x, barRods: [BarChartRodData(toY: y, color: color, width: 25, borderRadius: BorderRadius.circular(6))]);
+  Widget _buildStatCard(String title, String count, Color color) => Container(padding: const EdgeInsets.symmetric(vertical: 16), decoration: BoxDecoration(color: const Color(0xFF1E252D), borderRadius: BorderRadius.circular(16), border: Border(bottom: BorderSide(color: color, width: 4))), child: Column(children: [Text(count, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)), const SizedBox(height: 4), Text(title, style: const TextStyle(fontSize: 13, color: Colors.white70))]));
+  Widget _buildLegendItem(Color color, String text) => Row(children: [Container(width: 12, height: 12, decoration: BoxDecoration(shape: BoxShape.circle, color: color)), const SizedBox(width: 8), Text(text, style: const TextStyle(color: Colors.white70, fontSize: 12))]);
+  BarChartGroupData _buildBarGroup(int x, double y, Color color) => BarChartGroupData(x: x, barRods: [BarChartRodData(toY: y, color: color, width: 20, borderRadius: BorderRadius.circular(6))]);
 
   Widget _buildEmployeeTile(Map<String, dynamic> employee, int index) {
     return Card(
