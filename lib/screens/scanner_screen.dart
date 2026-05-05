@@ -22,6 +22,9 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
   Color actionColor = Colors.blue;
   bool _isProcessing = false;
 
+  // ✅ Controller για να ελέγχουμε την κάμερα (flip κλπ)
+  late MobileScannerController _cameraController;
+
   // ✅ Αυτό "πιάνει" το NFC intent ΠΡΙΝ φύγει στο Android σύστημα
   static const _nfcChannel = MethodChannel('com.example.smartCardScannerApp/nfc');
 
@@ -29,6 +32,9 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _cameraController = MobileScannerController(
+      facing: CameraFacing.back, // Ξεκινάει με πίσω κάμερα
+    );
     _updateTime();
     timer = Timer.periodic(const Duration(seconds: 1), (Timer t) => _updateTime());
     _enableNfcForegroundDispatch();
@@ -184,6 +190,7 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     timer?.cancel();
+    _cameraController.dispose();
     _disableNfcForegroundDispatch();
     NfcManager.instance.stopSession().catchError((_) {});
     super.dispose();
@@ -194,10 +201,14 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
     return Scaffold(
       backgroundColor: const Color(0xFF12181F),
       appBar: AppBar(
-        title: const Text('Τερματικό Ωρομέτρησης'),
+        title: const Text(
+          'Τερματικό Ωρομέτρησης',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor: const Color(0xFF1F262F),
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white), // ✅ Και το βελάκι πίσω λευκό
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
@@ -255,18 +266,44 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
                     height: 300,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(20),
-                      child: MobileScanner(
-                        onDetect: (capture) {
-                          if (_isProcessing) return;
-                          final List<Barcode> barcodes = capture.barcodes;
-                          if (barcodes.isNotEmpty &&
-                              barcodes.first.rawValue != null) {
-                            _isProcessing = true;
-                            cancelScan();
-                            showSuccessMessage(
-                                barcodes.first.rawValue!, "QR Code");
-                          }
-                        },
+                      child: Stack(
+                        children: [
+                          // Η κάμερα
+                          MobileScanner(
+                            controller: _cameraController,
+                            onDetect: (capture) {
+                              if (_isProcessing) return;
+                              final List<Barcode> barcodes = capture.barcodes;
+                              if (barcodes.isNotEmpty &&
+                                  barcodes.first.rawValue != null) {
+                                _isProcessing = true;
+                                cancelScan();
+                                showSuccessMessage(
+                                    barcodes.first.rawValue!, "QR Code");
+                              }
+                            },
+                          ),
+                          // ✅ Κουμπί flip κάμερας (πάνω δεξιά)
+                          Positioned(
+                            top: 10,
+                            right: 10,
+                            child: GestureDetector(
+                              onTap: () => _cameraController.switchCamera(),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                child: const Icon(
+                                  Icons.flip_camera_android,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
